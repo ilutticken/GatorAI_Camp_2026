@@ -30,8 +30,8 @@ class SettingsMenu:
         self.selected_index = 0
         self.input_timer = Timer(150)
 
-        # Camera detection
-        self.available_cameras = game_settings.detect_available_cameras()
+        # Camera detection will only run when the player interacts with camera settings
+        self.available_cameras = None
 
         # Load corn graphic for selection indicator
         import os
@@ -122,13 +122,43 @@ class SettingsMenu:
         percent_rect = percent_surf.get_rect(center=(bar_x + bar_width + 60, y_pos))
         self.display_surface.blit(percent_surf, percent_rect)
 
+    def load_available_cameras(self):
+        """Load available cameras lazily when the player opens camera settings."""
+        if self.available_cameras is not None:
+            return self.available_cameras
+
+        if not game_settings.get("enable_camera", True):
+            self.available_cameras = [
+                {
+                    "index": game_settings.get_camera_index(),
+                    "name": game_settings.get_camera_name(
+                        game_settings.get_camera_index()
+                    ),
+                }
+            ]
+        else:
+            self.available_cameras = game_settings.detect_available_cameras()
+
+        if not self.available_cameras:
+            self.available_cameras = [
+                {
+                    "index": game_settings.get_camera_index(),
+                    "name": game_settings.get_camera_name(
+                        game_settings.get_camera_index()
+                    ),
+                }
+            ]
+
+        return self.available_cameras
+
     def draw_camera_control(self, option, y_pos, is_selected):
         """Draw camera selection control"""
         current_camera_index = game_settings.get_camera_index()
+        cameras = self.load_available_cameras()
         current_camera = next(
             (
                 cam
-                for cam in self.available_cameras
+                for cam in cameras
                 if cam["index"] == current_camera_index
             ),
             {"name": f"Camera {current_camera_index}"},
@@ -198,7 +228,7 @@ class SettingsMenu:
                 self.input_timer.activate()
             elif current_option["type"] == "camera":
                 current_index = game_settings.get_camera_index()
-                camera_indices = [cam["index"] for cam in self.available_cameras]
+                camera_indices = [cam["index"] for cam in self.load_available_cameras()]
                 if current_index in camera_indices:
                     current_pos = camera_indices.index(current_index)
                 else:
@@ -217,6 +247,8 @@ class SettingsMenu:
                 # Toggle the boolean value
                 current_value = game_settings.get(current_option["key"], True)
                 game_settings.set(current_option["key"], not current_value)
+                if current_option["key"] == "enable_camera":
+                    self.available_cameras = None
                 self.input_timer.activate()
 
         # Selection

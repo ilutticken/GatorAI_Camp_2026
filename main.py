@@ -10,18 +10,20 @@ Educational Concepts Covered:
 - Pygame library usage
 - Module imports and organization
 """
+# [1] Main game entry point with module imports and installation
+# [1] Main game entry point with module imports and installation
 
 # Import required modules for our game
 from installer import install
 
 # Install required packages if they're not already installed
-install("pygame")  # Game development library
-install("pytmx")  # Map loading library
-install("kagglehub")  # Dataset library
-install("requests")  # Library for web requests
-install("opencv-python")  # Computer vision library
-install("pytorch_lightning")
-install("openai")  # AI API library for dialogue generation
+# install("pygame")  # Game development library
+# install("pytmx")  # Map loading library
+# install("kagglehub")  # Dataset library
+# install("requests")  # Library for web requests
+# install("opencv-python")  # Computer vision library
+# install("pytorch_lightning")
+# install("openai")  # AI API library for dialogue generation
 
 import pygame  # Main game development library
 import sys  # System operations
@@ -29,11 +31,8 @@ import os  # Operating system interface
 
 # Import our custom game modules
 from settings import *  # Game configuration settings
-from level import Level  # Game world and gameplay
 from main_menu import MainMenu  # Main menu system
-from character_screen import CharacterScreen  # Player information screen
 import game_settings  # Audio and game settings
-from emotion_detector import EmotionDetector
 from collections import deque
 
 
@@ -49,6 +48,8 @@ class Game:
 
     Think of this as the "manager" that coordinates everything!
     """
+
+# [2] Game class structure; shows class definition, initialization with pygame setup
 
     def __init__(self):
         """
@@ -74,6 +75,9 @@ class Game:
         # Load game settings (like volume levels) from file
         game_settings.load_settings()
 
+        # Show a quick loading screen before the menu is fully built
+        self.show_loading_screen("Loading menu...")
+
         # Initialize game components
         self.level = None  # The game world (will be created when game starts)
         self.main_menu = MainMenu(
@@ -86,10 +90,32 @@ class Game:
         self.emotions_deque = deque(maxlen=5)  # Store the last 5 detected emotions
         self.emotion_detector = None
         if game_settings.get("enable_camera", True):
+            from emotion_detector import EmotionDetector
             self.emotion_detector = EmotionDetector(
                 self.emotions_deque, show_camera_preview=False
             )
         # self.emotion_detector.start() # We will start this in the run loop
+
+    def show_loading_screen(self, message="Loading...", delay_ms=250):
+        """Display a simple loading screen and allow pygame to update."""
+        self.screen.fill("black")
+        try:
+            title_font = pygame.font.Font("font/LycheeSoda.ttf", 50)
+            info_font = pygame.font.Font("font/LycheeSoda.ttf", 28)
+        except Exception:
+            title_font = pygame.font.SysFont(None, 50)
+            info_font = pygame.font.SysFont(None, 28)
+
+        title_surface = title_font.render(message, True, "White")
+        info_surface = info_font.render("Please wait...", True, "Gray")
+
+        title_rect = title_surface.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 20))
+        info_rect = info_surface.get_rect(center=(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 30))
+
+        self.screen.blit(title_surface, title_rect)
+        self.screen.blit(info_surface, info_rect)
+        pygame.display.update()
+        pygame.time.delay(delay_ms)
 
     def start_game(self):
         """
@@ -97,6 +123,10 @@ class Game:
         ==========================================================
         This method creates the game world and player character screen.
         """
+        self.show_loading_screen("Loading world...")
+        from level import Level
+        from character_screen import CharacterScreen
+
         self.level = Level(self.emotions_deque)  # Create the game world
         self.character_screen = CharacterScreen(
             self.level.player
@@ -111,6 +141,7 @@ class Game:
             self.emotion_detector.join(timeout=2.0)  # Wait for thread to stop
 
         # Create new emotion detector with updated settings
+        from emotion_detector import EmotionDetector
         self.emotion_detector = EmotionDetector(
             self.emotions_deque, show_camera_preview=False
         )
@@ -133,8 +164,8 @@ class Game:
 
         # Main game loop - runs until player quits
         while True:
-            # A small delay to ensure the main thread has priority
-            pygame.time.delay(10)
+            # Cap the frame rate to reduce CPU usage and keep game timing stable
+            delta_time = self.clock.tick(60) / 1000  # Convert milliseconds to seconds
 
             # EVENT HANDLING - Check what the player is doing
             events = pygame.event.get()
@@ -153,9 +184,6 @@ class Game:
                     and self.character_screen
                 ):
                     self.character_screen.toggle()  # Show/hide character screen
-
-            # DELTA TIME - Calculate time since last frame (for smooth movement)
-            delta_time = self.clock.tick() / 1000  # Convert milliseconds to seconds
 
             # UPDATE GAME STATE - Decide what to update based on current screen
             if self.show_main_menu:
